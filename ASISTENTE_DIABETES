@@ -1,0 +1,117 @@
+import streamlit as st
+
+# Configuración de la página
+st.set_page_config(page_title="Calculadora Diabetes", page_icon="💙", layout="centered")
+
+# --- ESTILO VISUAL (CSS) ---
+st.markdown("""
+    <style>
+    .big-font { font-size:20px !important; }
+    .stButton>button { width: 100%; background-color: #FF4B4B; color: white; height: 3em; }
+    .success-box { padding: 20px; background-color: #d4edda; color: #155724; border-radius: 10px; border: 1px solid #c3e6cb; }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("💙 Control de Insulina")
+st.write("Introduce lo que vas a comer y te calculo la dosis.")
+
+# --- BASE DE DATOS (Extraída de tus fotos) ---
+# Valor = Gramos que pesan 1 Ración (10g HC)
+bd_alimentos = {
+    "🍝 Pasta y Arroz": {
+        "Pasta hervida": 45,  # Foto tabla
+        "Pasta cruda": 15,    # Foto tabla
+        "Arroz blanco hervido": 38,
+        "Arroz blanco crudo": 13,
+        "Arroz integral hervido": 40,
+    },
+    "🥔 Patata y Tubérculos": {
+        "Patata hervida": 65,
+        "Patata frita": 30,
+        "Patata asada/horno": 35,
+        "Puré de patata (copos)": 15,
+        "Boniato": 50,
+    },
+    "🥖 Pan y Harinas": {
+        "Pan blanco (barra)": 20,
+        "Pan de molde": 20,
+        "Pan integral": 23,
+        "Pan tostado": 15,
+    },
+    "🍎 Frutas": {
+        "Manzana": 100,
+        "Plátano": 50,
+        "Pera": 100,
+        "Naranja": 100,
+        "Mandarina": 100,
+        "Uvas": 50,
+        "Sandía": 200,
+        "Melón": 200,
+    },
+    "🥛 Lácteos y Otros": {
+        "Leche (Vaso 200ml)": 200, 
+        "Yogur natural": 125,
+        "Croquetas": 50,
+        "Pizza": 40,
+    }
+}
+
+# --- BARRA LATERAL (AJUSTES) ---
+with st.sidebar:
+    st.header("⚙️ Tus Datos")
+    # Ratio: Cuánta insulina por cada 10g de HC
+    ratio = st.number_input("Tu Ratio (Unidades por ración):", value=1.0, step=0.1)
+    # FSI: Factor de Sensibilidad (Fijo en 35 según tus fotos)
+    fsi = st.number_input("Factor de Sensibilidad (FSI):", value=35)
+    objetivo = st.number_input("Glucosa Objetivo:", value=100)
+
+# --- PANTALLA PRINCIPAL ---
+col1, col2 = st.columns(2)
+with col1:
+    categoria = st.selectbox("Tipo de comida:", list(bd_alimentos.keys()))
+with col2:
+    alimento = st.selectbox("Alimento:", list(bd_alimentos[categoria].keys()))
+
+# Gramos de 1 ración según la tabla médica
+valor_racion = bd_alimentos[categoria][alimento]
+st.info(f"💡 Dato médico: **{valor_racion}g** de esto son 1 ración (10g HC).")
+
+gramos_comida = st.number_input(f"¿Cuántos gramos de {alimento} vas a comer?", min_value=0, step=5)
+
+st.markdown("---")
+
+st.subheader("🩸 ¿Cómo tienes el azúcar ahora?")
+glucosa_actual = st.number_input("Glucemia actual (mg/dL):", min_value=50, value=100)
+
+# --- BOTÓN DE CALCULAR ---
+if st.button("CALCULAR DOSIS", type="primary"):
+    
+    # 1. Cálculo de comida
+    # Fórmula: (Gramos que comes / Valor de la tabla) * Ratio
+    raciones = gramos_comida / valor_racion
+    insulina_comida = raciones * ratio
+    
+    # 2. Cálculo de corrección
+    # Fórmula: (Actual - Objetivo) / 35
+    correccion = 0
+    if glucosa_actual > objetivo:
+        correccion = (glucosa_actual - objetivo) / fsi
+    
+    total = insulina_comida + correccion
+    
+    # --- RESULTADOS ---
+    st.markdown(f"""
+    <div class="success-box">
+        <h2 style="text-align:center">💉 PONER: {total:.1f} UNIDADES</h2>
+        <hr>
+        <p><b>Detalles:</b></p>
+        <ul>
+            <li>Por la comida ({gramos_comida}g): <b>{insulina_comida:.1f} u</b></li>
+            <li>Por corrección (Glucosa {glucosa_actual}): <b>{correccion:.1f} u</b></li>
+        </ul>
+        <p><i>Estás comiendo {raciones:.1f} raciones de hidratos.</i></p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if glucosa_actual < 70:
+        st.warning("⚠️ ¡OJO! Tienes hipoglucemia. Toma azúcar antes de ponerte insulina.")
